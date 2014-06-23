@@ -1,17 +1,15 @@
 package james.toy.rain1;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
-import android.os.AsyncTask;
-
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 public class RainParser {
 	public ArrayList<RainData> rainDatas;
@@ -19,52 +17,75 @@ public class RainParser {
 	
 	public String exceptionMsg = "";
 	
-	public RainParser(AsyncParser task) {
-		Parser(task);
+	public RainParser() {
+		Parser();
 	}
 	
-	public void Parser(AsyncParser task) {
+	public void Parser() {
 		rainDatas = new ArrayList<RainData>();
 		rainDataMap = new HashMap<String, RainData>();
 		
-		Document doc;
+		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 		try {
-			task.onMyProgressUpdate(10);
+			DocumentBuilder builder = factory.newDocumentBuilder();
+			Document document = builder.parse("http://opendata.cwb.gov.tw/opendata/DIV2/O-A0002-001.xml");
+			Element root = document.getDocumentElement();
+			NodeList nodes = root.getElementsByTagName("location");
 			
-			doc = Jsoup.connect("http://www.cwb.gov.tw/V7/observe/rainfall/A136.htm").get();
-			task.onMyProgressUpdate(20);
-			
-			Element content = doc.getElementById("tableData");
-			task.onMyProgressUpdate(40);
-			
-			Elements table = content.select("tr");			
-			task.onMyProgressUpdate(60);
-			
-			for (Element row : table)
-			{
-				Elements cells = row.select("td");
+			for (int i = 0; i < nodes.getLength(); i++) {
+				Element e = (Element)nodes.item(i);
+				RainData rd = new RainData();
+				rd.station = e.getElementsByTagName("locationName").item(0).getTextContent();
 				
-				if (cells.size() == 11)
-				{
-					RainData rd = new RainData();
-					rd.region = cells.get(0).text();
-					rd.station = cells.get(1).text();
-					rd.tenMinute = GetRainValue(cells.get(2).text());
-					rd.oneHour = GetRainValue(cells.get(3).text());
-					rd.threeHour = GetRainValue(cells.get(4).text());
-					rd.sixHour = GetRainValue(cells.get(5).text());
-					rd.twelveHour = GetRainValue(cells.get(6).text());
-					rd.twentyFourHour = GetRainValue(cells.get(7).text());
-					rd.today = GetRainValue(cells.get(8).text());
-					rd.yesterday = GetRainValue(cells.get(9).text());
-					rd.twoDays = GetRainValue(cells.get(10).text());
+				NodeList weatherNodes = e.getElementsByTagName("weatherElement");
+				
+				for (int j = 0; j < weatherNodes.getLength(); j++) {
+					Element weather = (Element)weatherNodes.item(j);
 					
-					rainDatas.add(rd);
-					rainDataMap.put(rd.station, rd);
-				}
+					String elementString = weather.getElementsByTagName("elementName").item(0).getTextContent();
+					double elementValue  = Double.parseDouble(weather.getElementsByTagName("value").item(0).getTextContent());
+					
+					if (elementString.equals("RAIN")) {
+						rd.oneHour = elementValue;
+					}
+					else if (elementString.equals("MIN_10")) {
+						rd.tenMinute = elementValue;
+					}
+					else if (elementString.equals("HOUR_3")) {
+						rd.threeHour = elementValue;
+					}
+					else if (elementString.equals("HOUR_6")) {
+						rd.sixHour = elementValue;
+					}
+					else if (elementString.equals("HOUR_12")) {
+						rd.twelveHour = elementValue;
+					}
+					else if (elementString.equals("HOUR_24")) {
+						rd.twentyFourHour = elementValue;
+					}
+					else if (elementString.equals("NOW")) {
+						rd.today = elementValue;
+					}
+					else {
+						
+					}
+				} // weatherElement
+				
+				NodeList paramList = e.getElementsByTagName("parameter");
+				for (int j = 0; j < paramList.getLength(); j++) {
+					Element paramElement = (Element)paramList.item(j);
+					
+					String parameterName = paramElement.getElementsByTagName("parameterName").item(0).getTextContent();
+					String parameterValue = paramElement.getElementsByTagName("parameterValue").item(0).getTextContent();
+
+					if (parameterName.equals("CITY") || parameterName.equals("TOWN")) {
+						rd.region += parameterValue;
+					}
+				} // parameter
+				
+				rainDatas.add(rd);
+				rainDataMap.put(rd.station, rd);
 			}
-			
-			task.onMyProgressUpdate(100);
 		} catch (Exception e) {
 			exceptionMsg = e.getMessage();
 		}

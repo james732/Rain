@@ -7,22 +7,19 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.util.Log;
 import android.view.Menu;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.SimpleAdapter;
-import android.widget.Toast;
 
 public class MainActivity extends Activity {
 	SimpleAdapter adapter;
 	public Button btn;
+	public ArrayList<RainData> rainDataList;	
 	public ProgressBar bar;
-	public ArrayList<RainData> rainDataList;
 	
 	ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
 		
@@ -48,11 +45,12 @@ public class MainActivity extends Activity {
 				
 				AlertDialog.Builder b = new AlertDialog.Builder(MainActivity.this);
 				b.setTitle(rd.station);
-				b.setMessage(rd.GetDetail());
+				b.setMessage(rd.getDetail());
 				b.create().show();
 			}
 		});
 		
+		bar = (ProgressBar)findViewById(R.id.progressBar1);
 		btn = (Button)findViewById(R.id.button1);
 		btn.setText("Busy");
 		btn.setEnabled(false);
@@ -62,13 +60,20 @@ public class MainActivity extends Activity {
 				new AsyncParser(MainActivity.this).execute();
 				btn.setText("Busy");
 				btn.setEnabled(false);
+				bar.setVisibility(View.VISIBLE);
 			}
 		});
 		
-		bar = (ProgressBar)findViewById(R.id.progressBar1);
-		bar.setMax(100);
-		
 		new AsyncParser(this).execute();
+		bar.setVisibility(View.VISIBLE);
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+
+		new AsyncParser(this).execute();
+		bar.setVisibility(View.VISIBLE);
 	}
 
 	@Override
@@ -77,7 +82,6 @@ public class MainActivity extends Activity {
 		getMenuInflater().inflate(R.menu.main, menu);
 		return true;
 	}
-
 }
 
 class AsyncParser extends AsyncTask<Void, Integer, RainParser> {
@@ -90,29 +94,22 @@ class AsyncParser extends AsyncTask<Void, Integer, RainParser> {
 	
 	@Override
 	protected RainParser doInBackground(Void... params) {
-		return new RainParser(this);
-	}
-	
-	protected void onProgressUpdate (Integer... values) {
-		activity.bar.setProgress(values[0]);
-	}
-	
-	public void onMyProgressUpdate (int value) {
-		onProgressUpdate(value);
+		return new RainParser();
 	}
 	
     protected void onPostExecute(RainParser rainParser) {
+    	activity.bar.setVisibility(View.GONE);
     	
     	String[] target = new String[] {
-    			"關渡 (C1AC5)",
-    			"淡水 (46690)",
-    			"白河 (C1X03)"
+    			"關渡",
+    			"淡水",
+//    			"白河",
     	};
     	
     	activity.rainDataList = new ArrayList<RainData>();
     	activity.list.clear();
     	
-    	for (int i = 0; i < 3; i++) {
+    	for (int i = 0; i < target.length; i++) {
     		String s = target[i];
     		HashMap<String, String> m = new HashMap<String, String>();
     		RainData rd;
@@ -120,7 +117,7 @@ class AsyncParser extends AsyncTask<Void, Integer, RainParser> {
 	    	if (rainParser.rainDataMap.containsKey(s)) {
 	    		rd = rainParser.rainDataMap.get(s);	    		
 	    		m.put("Station", rd.station);
-	    		m.put("Status", rd.GetStatus());
+	    		m.put("Status", rd.getStatus());
 	    	}
 	    	else {
 	    		rd = new RainData();
